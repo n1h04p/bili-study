@@ -1,0 +1,10 @@
+{
+  "name": "bili-study-local",
+  "interface": {"displayName": "本地 B站学习助手"},
+  "plugins": [{
+    "name": "bili-study",
+    "source": {"source": "local", "path": "./plugin"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}

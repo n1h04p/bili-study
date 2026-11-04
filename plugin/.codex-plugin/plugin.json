@@ -1,0 +1,16 @@
+{
+  "name": "bili-study",
+  "version": "0.2.0",
+  "description": "独立扫码登录 B站，读取 @我的、视频详情、分P和带时间戳字幕，辅助学习。",
+  "license": "MIT",
+  "mcpServers": "./.mcp.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "B站学习助手",
+    "shortDescription": "扫码授权，读取教学字幕、消息与指定时间点画面。",
+    "longDescription": "本机运行的 B站学习插件。单独扫码登录，凭证用 Windows DPAPI 加密保存；读取消息、简介、评论、字幕及视频画面截图，辅助理解代码和电路图。",
+    "developerName": "Local",
+    "category": "Productivity",
+    "defaultPrompt": ["读取我指定的 B站作业视频字幕并逐步讲解"]
+  }
+}
