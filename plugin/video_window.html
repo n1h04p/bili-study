@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B站视频窗口</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, "Microsoft YaHei", sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: light-dark(#f5f6f8, #151619); color: light-dark(#17191d, #f5f5f6); }
+  main { padding: 16px; max-width: 1080px; margin: auto; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+  h1 { font-size: 20px; margin: 0; }
+  .hint, .meta { color: light-dark(#646b75, #aaadb5); font-size: 12px; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr); gap: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
+  .tile, .player { border: 1px solid light-dark(#dce0e5, #383a40); background: light-dark(#fff, #222327); border-radius: 10px; overflow: hidden; }
+  .tile { padding: 0 0 10px; text-align: left; color: inherit; font: inherit; cursor: pointer; }
+  .tile:focus-visible, .tile[aria-pressed="true"] { outline: 2px solid #7198f0; outline-offset: 1px; }
+  .cover { display: block; width: 100%; aspect-ratio: 16 / 9; background: linear-gradient(130deg, #202c42, #668ab5); object-fit: cover; }
+  .tile strong, .tile small { display: block; margin: 8px 10px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .tile strong { font-size: 14px; font-weight: 600; }
+  .tile small { color: light-dark(#646b75, #aaadb5); font-size: 12px; }
+  .player { padding: 12px; align-self: start; }
+  .frame { aspect-ratio: 16 / 9; background: #111827; border-radius: 6px; overflow: hidden; display: grid; place-items: center; color: #fff; }
+  iframe { border: 0; width: 100%; height: 100%; display: block; }
+  .player h2 { font-size: 17px; line-height: 1.4; margin: 12px 0 4px; }
+  .actions { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+  a { color: light-dark(#275cba, #a6c0ff); }
+  #status { padding: 20px 4px; color: light-dark(#646b75, #aaadb5); }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .player { grid-row: 1; } }
+  @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } }
+</style>
+<main>
+  <header><h1>视频</h1><span class="hint">最近 @ 我的视频</span></header>
+  <p id="status" role="status">正在加载视频…</p>
+  <div class="layout" id="layout" hidden>
+    <div class="grid" id="grid" aria-label="视频列表"></div>
+    <section class="player" aria-label="当前视频">
+      <div class="frame" id="frame">选择一个视频</div>
+      <h2 id="title"></h2><div class="meta" id="meta"></div>
+      <div class="actions"><a id="open" target="_blank" rel="noopener noreferrer">在 B 站观看 ↗</a></div>
+    </section>
+  </div>
+</main>
+<script>
+(() => {
+  const grid = document.getElementById('grid');
+  const status = document.getElementById('status');
+  const layout = document.getElementById('layout');
+  const frame = document.getElementById('frame');
+  const title = document.getElementById('title');
+  const meta = document.getElementById('meta');
+  const open = document.getElementById('open');
+  let items = [];
+  let selected = '';
+  function duration(seconds) { const m = Math.floor(seconds / 60); return `${m}:${String(seconds % 60).padStart(2, '0')}`; }
+  function select(item) {
+    selected = item.bvid;
+    grid.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.bvid === selected)));
+    frame.replaceChildren();
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.bilibili.com/player.html?bvid=${encodeURIComponent(item.bvid)}&autoplay=0`;
+    iframe.allow = 'fullscreen; picture-in-picture';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'no-referrer';
+    iframe.title = item.title;
+    frame.append(iframe);
+    title.textContent = item.title;
+    meta.textContent = `${item.author} · ${duration(item.duration)} · ${item.bvid}`;
+    open.href = item.url;
+  }
+  function render(result) {
+    const value = result?.structuredContent || result;
+    if (value?.error) { status.textContent = `加载失败：${value.error}`; return; }
+    if (!Array.isArray(value?.items)) return;
+    items = value.items.filter(x => /^BV[0-9A-Za-z]{10}$/.test(x.bvid));
+    if (!items.length) { status.textContent = '目前没有可显示的视频。'; return; }
+    grid.replaceChildren();
+    for (const item of items) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'tile'; button.dataset.bvid = item.bvid;
+      button.setAttribute('aria-pressed', 'false');
+      if (item.cover_url) { const img = document.createElement('img'); img.className = 'cover'; img.src = item.cover_url; img.alt = ''; img.referrerPolicy = 'no-referrer'; button.append(img); }
+      else { const blank = document.createElement('span'); blank.className = 'cover'; button.append(blank); }
+      const name = document.createElement('strong'); name.textContent = item.title;
+      const byline = document.createElement('small'); byline.textContent = `${item.author} · ${duration(item.duration)}`;
+      button.append(name, byline); button.addEventListener('click', () => select(item)); grid.append(button);
+    }
+    status.hidden = true; layout.hidden = false;
+    select(items.find(x => x.bvid === selected) || items[0]);
+  }
+  window.addEventListener('message', event => {
+    if (event.source !== window.parent || event.data?.jsonrpc !== '2.0') return;
+    if (event.data.method === 'ui/notifications/tool-result') render(event.data.params);
+  });
+  if (window.openai?.toolOutput) render(window.openai.toolOutput);
+  let nextId = 1;
+  const id = nextId++;
+  window.parent.postMessage({jsonrpc:'2.0',id,method:'ui/initialize',params:{appInfo:{name:'bili-video-window',version:'1.0.0'},appCapabilities:{},protocolVersion:'2026-01-26'}},'*');
+  function onInit(event) {
+    if (event.source !== window.parent || event.data?.jsonrpc !== '2.0' || event.data.id !== id) return;
+    window.removeEventListener('message', onInit);
+    if (!event.data.error) window.parent.postMessage({jsonrpc:'2.0',method:'ui/notifications/initialized',params:{}},'*');
+  }
+  window.addEventListener('message', onInit);
+})();
+</script>
+</html>
